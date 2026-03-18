@@ -81,16 +81,25 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard() {
   const [rawData, setRawData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(null)
   const [selectedChannel, setSelectedChannel] = useState('ALL')
   const [customerSearch, setCustomerSearch] = useState('')
   const [selectedCustomers, setSelectedCustomers] = useState([])
   const [activeMetrics, setActiveMetrics] = useState({ Projection_KG: true, SO_KG: true, Gap: true })
 
-  useEffect(() => {
+  const loadData = () => {
+    setLoading(true)
+    setFetchError(null)
     fetch('/data.json')
-      .then(r => r.json())
-      .then(d => { setRawData(d); setLoading(false) })
-  }, [])
+      .then(r => {
+        if (!r.ok) throw new Error(`Failed to load data (${r.status} ${r.statusText})`)
+        return r.json()
+      })
+      .then(d => { setRawData(Array.isArray(d) ? d : []); setLoading(false) })
+      .catch(err => { setFetchError(err.message); setLoading(false) })
+  }
+
+  useEffect(() => { loadData() }, [])
 
   const channels = useMemo(() => {
     const ch = [...new Set(rawData.map(r => r.channel))].sort()
@@ -159,6 +168,16 @@ export default function Dashboard() {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a0a0f', color: '#6c63ff', fontFamily: 'Syne, sans-serif', fontSize: 18 }}>
       Loading data…
+    </div>
+  )
+
+  if (fetchError) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0a0a0f', color: '#ff6584', fontFamily: 'Syne, sans-serif', gap: 16 }}>
+      <div style={{ fontSize: 22, fontWeight: 700 }}>⚠ Failed to load data</div>
+      <div style={{ fontSize: 14, color: '#7878a0', maxWidth: 420, textAlign: 'center' }}>{fetchError}</div>
+      <button onClick={loadData} style={{ marginTop: 8, padding: '10px 28px', background: '#6c63ff', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 15, fontFamily: 'Syne, sans-serif' }}>
+        Retry
+      </button>
     </div>
   )
 
