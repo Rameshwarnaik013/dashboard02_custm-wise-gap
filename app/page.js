@@ -11,40 +11,82 @@ const MONTHS = ['Jan-25','Feb-25','Mar-25','Apr-25','May-25','Jun-25','Jul-25','
 
 function formatCustomer(name) {
   if (!name) return ''
-  // Known suffix/keyword replacements (case-insensitive, whole-word aware)
-  const result = name
-    // Insert space between lowercase→uppercase transitions (camelCase)
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    // Insert space between letter→digit and digit→letter
-    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
-    .replace(/(\d)([a-zA-Z])/g, '$1 $2')
-    // Insert space between sequences of uppercase letters followed by uppercase+lowercase
-    // e.g. "ABCTraders" → "ABC Traders"
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
-    // Replace known suffixes (must come after spacing so they match correctly)
-    .replace(/\bpvt\s*ltd\b/gi, 'Pvt Ltd')
-    .replace(/\bpvt\b/gi, 'Pvt')
-    .replace(/\bltd\b/gi, 'Ltd')
-    .replace(/\bllp\b/gi, 'LLP')
-    .replace(/\bindia\b/gi, 'India')
-    .replace(/\bfoods\b/gi, 'Foods')
-    .replace(/\btraders\b/gi, 'Traders')
-    .replace(/\benterprises\b/gi, 'Enterprises')
-    .replace(/\bindustries\b/gi, 'Industries')
-    .replace(/\bagro\b/gi, 'Agro')
-    .replace(/\bintl\b/gi, 'Intl')
-    // Collapse multiple spaces
-    .replace(/\s{2,}/g, ' ')
-    .trim()
 
-  // Title-case each word (so all-caps names like "ABCTRADERS" become "Abctraders" → we catch via regex above)
-  return result
-    .split(' ')
+  // Dictionary of known words sorted longest-first for greedy matching
+  const WORDS = [
+    'international','interglobe','industries','enterprises','enterprise',
+    'marketing','logistics','catering','aviation','beverages','aircargo',
+    'distributor','distributors','restaurant','wholesaler','wholesale',
+    'services','ventures','agencies','trading','retailers','retailer',
+    'private','holiday','solutions','networks','network','products',
+    'product','exports','imports','express','supplies','supply',
+    'systems','system','holdings','holding','processing','projects',
+    'project','chemicals','chemical','electrical','electronics',
+    'engineers','engineering','constructions','construction',
+    'consultants','consultant','investments','investment','management',
+    'developments','development','packaging','packagers','manufacturers',
+    'manufacturer','promoters','promoter','communications','communication',
+    'technologies','technology','associates','associate','resources',
+    'resource','finance','financial','foods','food','hotels','hotel',
+    'motels','motel','airways','airline','airlines','airport','cargo',
+    'global','retail','stores','store','shops','shop','mart','malls',
+    'mall','palace','resort','resorts','bakery','dairy','farms','farm',
+    'spices','spice','masala','agro','agri','organic','natural','india',
+    'limited','traders','trader','agency','chefs','chef','sats','narangs',
+    'narang','anjali','lifeware','homes','home','jewellers','jeweller',
+    'medical','pharma','pharmaceuticals','healthcare','health','clinic',
+    'hospital','builders','builder','realty','estate','estates','properties',
+    'property','infrastructure','infra','group','brothers','brother',
+    'sons','air','taj','raj','sky','pvtltd','pvt','ltd','llp','lsg',
+    'snv','blits','three','vee','topsats','four','minute','mile',
+  ]
+
+  const sorted = [...new Set(WORDS)].sort((a, b) => b.length - a.length)
+  const ABBR = { pvtltd:'Pvt Ltd', pvt:'Pvt', ltd:'Ltd', llp:'LLP', lsg:'LSG', snv:'SNV' }
+
+  function segment(str) {
+    const s = str.toLowerCase()
+    const parts = []
+    let i = 0
+    while (i < s.length) {
+      let found = false
+      for (const w of sorted) {
+        if (s.startsWith(w, i)) {
+          parts.push(w); i += w.length; found = true; break
+        }
+      }
+      if (!found) {
+        let chunk = ''
+        while (i < s.length && !sorted.some(w => s.startsWith(w, i) && chunk.length > 0)) {
+          chunk += s[i++]
+        }
+        if (chunk) parts.push(chunk)
+      }
+    }
+    return parts
+  }
+
+  let parts
+  if (/\s/.test(name) || /[A-Z]/.test(name)) {
+    parts = name
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+      .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+      .replace(/(\d)([a-zA-Z])/g, '$1 $2')
+      .split(/\s+/).filter(Boolean)
+  } else {
+    parts = segment(name)
+  }
+
+  return parts
     .map(w => {
-      if (['Pvt', 'Ltd', 'LLP', 'Intl'].includes(w)) return w
+      const lw = w.toLowerCase()
+      if (ABBR[lw]) return ABBR[lw]
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
     })
     .join(' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
 }
 
 function formatNum(v) {
